@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>TenantOS — Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:#0a0a0f; --surface:#111118; --surface2:#16161f;
+    --border:#1e1e2e; --accent:#6c63ff; --text:#e8e8f0; --muted:#6b6b80;
+    --success:#4ade80; --error:#f87171;
+    --font-head:'Syne',sans-serif; --font-body:'DM Sans',sans-serif; --font-mono:'DM Mono',monospace;
+  }
+  body { background:var(--bg); color:var(--text); font-family:var(--font-body); min-height:100vh; }
+  body::before {
+    content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+    background-image:linear-gradient(rgba(108,99,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(108,99,255,.04) 1px,transparent 1px);
+    background-size:48px 48px;
+  }
+
+  /* ── AUTH ── */
+  #auth-screen { min-height:100vh; display:flex; align-items:center; justify-content:center; position:relative; z-index:1; }
+  .auth-card {
+    width:100%; max-width:960px; margin:40px 20px;
+    background:var(--surface); border:1px solid var(--border); border-radius:24px;
+    overflow:hidden; display:grid; grid-template-columns:300px 1fr; min-height:580px;
+    box-shadow:0 40px 120px rgba(0,0,0,.6);
+  }
+  .panel-left {
+    background:linear-gradient(160deg,#0d0d18,#0f0f1a);
+    border-right:1px solid var(--border); padding:48px 36px; display:flex; flex-direction:column;
+  }
+  .logo { font-family:var(--font-head); font-size:22px; font-weight:800; margin-bottom:52px; display:flex; align-items:center; gap:10px; }
+  .logo-dot { width:10px; height:10px; border-radius:50%; background:var(--accent); box-shadow:0 0 12px var(--accent); }
+  .panel-title { font-family:var(--font-head); font-size:32px; font-weight:800; line-height:1.15; margin-bottom:16px; letter-spacing:-1px; }
+  .panel-title span { color:var(--accent); }
+  .panel-desc { font-size:14px; color:var(--muted); line-height:1.7; margin-bottom:48px; }
+  .tab-switcher { display:flex; flex-direction:column; gap:6px; margin-top:auto; }
+  .tab-btn {
+    display:flex; align-items:center; gap:12px; padding:14px 16px; border-radius:10px;
+    border:1px solid transparent; cursor:pointer; background:transparent; color:var(--muted);
+    font-family:var(--font-body); font-size:14px; font-weight:500; transition:all .2s; text-align:left;
+  }
+  .tab-btn:hover { background:rgba(255,255,255,.04); color:var(--text); }
+  .tab-btn.active { background:rgba(108,99,255,.12); border-color:rgba(108,99,255,.3); color:var(--text); }
+  .tab-icon { width:34px; height:34px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:16px; background:rgba(255,255,255,.05); flex-shrink:0; transition:all .2s; }
+  .tab-btn.active .tab-icon { background:var(--accent); }
+  .tab-label { display:flex; flex-direction:column; gap:2px; }
+  .tab-label small { font-size:11px; color:var(--muted); }
+  .tab-btn.active .tab-label small { color:rgba(232,232,240,.6); }
+  .panel-right { padding:48px; display:flex; flex-direction:column; overflow-y:auto; }
+  .form-view { display:none; flex-direction:column; animation:fadeUp .3s ease; }
+  .form-view.active { display:flex; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+  .form-heading { font-family:var(--font-head); font-size:26px; font-weight:700; letter-spacing:-.5px; margin-bottom:6px; }
+  .form-sub { font-size:14px; color:var(--muted); margin-bottom:36px; line-height:1.6; }
+  .section-label {
+    font-family:var(--font-mono); font-size:10px; font-weight:500; text-transform:uppercase;
+    letter-spacing:2px; color:var(--accent); margin-bottom:16px; margin-top:24px;
+    display:flex; align-items:center; gap:10px;
+  }
+  .section-label::after { content:''; flex:1; height:1px; background:var(--border); }
+  .fields-grid { display:grid; gap:16px; grid-template-columns:1fr 1fr; }
+  .fields-grid .full { grid-column:1/-1; }
+  .field { display:flex; flex-direction:column; gap:7px; }
+  .field label { font-size:12px; font-weight:500; color:var(--muted); letter-spacing:.3px; }
+  .field input {
+    background:rgba(255,255,255,.03); border:1px solid var(--border); border-radius:10px;
+    padding:12px 16px; font-family:var(--font-body); font-size:14px; color:var(--text);
+    outline:none; transition:border-color .2s,box-shadow .2s;
+  }
+  .field input::placeholder { color:var(--muted); opacity:.5; }
+  .field input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(108,99,255,.15); }
+  .field input.err { border-color:var(--error); }
+  .field-error { font-size:11px; color:var(--error); display:none; }
+  .field-error.on { display:block; }
+  .btn { padding:14px 28px; border:none; border-radius:12px; font-family:var(--font-head); font-size:15px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:10px; transition:all .2s; letter-spacing:-.3px; }
+  .btn-primary { background:var(--accent); color:#fff; margin-top:28px; }
+  .btn-primary:hover { background:#7b73ff; transform:translateY(-1px); box-shadow:0 8px 32px rgba(108,99,255,.4); }
+  .btn-primary:disabled { opacity:.5; cursor:not-allowed; transform:none; }
+  .spinner { width:16px; height:16px; border:2px solid rgba(255,255,255,.3); border-top-color:white; border-radius:50%; animation:spin .6s linear infinite; display:none; }
+  .btn.loading .spinner { display:block; }
+  @keyframes spin { to{transform:rotate(360deg)} }
+  .alert { display:none; padding:12px 16px; border-radius:10px; font-size:13px; font-weight:500; margin-top:14px; line-height:1.5; }
+  .alert.success { background:rgba(74,222,128,.1); border:1px solid rgba(74,222,128,.3); color:var(--success); display:block; }
+  .alert.error   { background:rgba(248,113,113,.1); border:1px solid rgba(248,113,113,.3); color:var(--error);   display:block; }
+
+  /* ── DASHBOARD ── */
+  #dashboard { display:none; min-height:100vh; }
+  .sidebar {
+    position:fixed; left:0; top:0; bottom:0; width:240px;
+    background:var(--surface); border-right:1px solid var(--border);
+    display:flex; flex-direction:column; padding:28px 20px; z-index:100;
+  }
+  .sidebar-logo { font-family:var(--font-head); font-size:18px; font-weight:800; display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .tenant-badge { background:rgba(108,99,255,.15); border:1px solid rgba(108,99,255,.3); border-radius:8px; padding:8px 12px; margin-bottom:28px; font-size:12px; color:var(--accent); font-weight:500; }
+  .tenant-badge span { display:block; font-size:10px; color:var(--muted); margin-bottom:2px; font-family:var(--font-mono); text-transform:uppercase; letter-spacing:1px; }
+  .nav { display:flex; flex-direction:column; gap:4px; flex:1; }
+  .nav-item { display:flex; align-items:center; gap:10px; padding:10px 14px; border-radius:10px; cursor:pointer; font-size:14px; font-weight:500; color:var(--muted); border:none; background:transparent; transition:all .2s; text-align:left; width:100%; }
+  .nav-item:hover { background:rgba(255,255,255,.04); color:var(--text); }
+  .nav-item.active { background:rgba(108,99,255,.12); color:var(--text); }
+  .nav-item .ni { font-size:18px; }
+  .sidebar-footer { border-top:1px solid var(--border); padding-top:16px; }
+  .user-info { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+  .avatar { width:36px; height:36px; border-radius:50%; background:var(--accent); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; flex-shrink:0; }
+  .user-meta { flex:1; overflow:hidden; }
+  .user-meta strong { display:block; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .user-meta small { font-size:11px; color:var(--accent); font-family:var(--font-mono); }
+  .btn-logout { width:100%; padding:9px; border-radius:9px; border:1px solid var(--border); background:transparent; color:var(--muted); font-family:var(--font-body); font-size:13px; cursor:pointer; transition:all .2s; }
+  .btn-logout:hover { border-color:var(--error); color:var(--error); }
+  .main { margin-left:240px; padding:40px; }
+  .page { display:none; animation:fadeUp .25s ease; }
+  .page.active { display:block; }
+  .page-header { margin-bottom:32px; display:flex; align-items:flex-start; justify-content:space-between; }
+  .page-header-text h1 { font-family:var(--font-head); font-size:28px; font-weight:800; letter-spacing:-.5px; margin-bottom:4px; }
+  .page-header-text p { font-size:14px; color:var(--muted); }
+  .stats-row { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:32px; }
+  .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:24px; position:relative; overflow:hidden; }
+  .stat-card::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(108,99,255,.05),transparent); pointer-events:none; }
+  .stat-label { font-size:12px; color:var(--muted); font-family:var(--font-mono); text-transform:uppercase; letter-spacing:1px; margin-bottom:10px; }
+  .stat-value { font-family:var(--font-head); font-size:36px; font-weight:800; letter-spacing:-1px; }
+  .stat-sub { font-size:12px; color:var(--muted); margin-top:4px; }
+  .table-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; }
+  .table-header { padding:20px 24px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+  .table-header h3 { font-family:var(--font-head); font-size:16px; font-weight:700; }
+  table { width:100%; border-collapse:collapse; }
+  th { padding:12px 24px; text-align:left; font-size:11px; font-family:var(--font-mono); text-transform:uppercase; letter-spacing:1px; color:var(--muted); border-bottom:1px solid var(--border); }
+  td { padding:16px 24px; font-size:14px; border-bottom:1px solid rgba(30,30,46,.6); }
+  tr:last-child td { border-bottom:none; }
+  tr:hover td { background:rgba(255,255,255,.02); }
+  .badge { display:inline-flex; align-items:center; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; font-family:var(--font-mono); }
+  .badge-super { background:rgba(108,99,255,.15); color:var(--accent); border:1px solid rgba(108,99,255,.3); }
+  .badge-user  { background:rgba(255,255,255,.06); color:var(--muted); border:1px solid var(--border); }
+  .empty-state { text-align:center; padding:60px 24px; color:var(--muted); }
+  .empty-state .ei { font-size:40px; margin-bottom:12px; }
+  .empty-state p { font-size:14px; }
+  .btn-add { padding:9px 18px; background:var(--accent); color:white; border:none; border-radius:9px; font-family:var(--font-head); font-size:13px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px; transition:all .2s; }
+  .btn-add:hover { background:#7b73ff; }
+
+  /* DB view */
+  .db-info-banner { background:rgba(108,99,255,.08); border:1px solid rgba(108,99,255,.2); border-radius:12px; padding:16px 20px; margin-bottom:24px; font-size:13px; color:var(--muted); line-height:1.6; }
+  .db-info-banner strong { color:var(--accent); }
+  .db-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+  .db-table-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; }
+  .db-table-title { padding:14px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; }
+  .db-table-title h3 { font-family:var(--font-mono); font-size:13px; color:var(--accent); }
+  .db-table-title .count { font-size:11px; color:var(--muted); margin-left:auto; }
+  .db-row { padding:12px 20px; border-bottom:1px solid rgba(30,30,46,.6); font-size:12px; font-family:var(--font-mono); display:flex; flex-direction:column; gap:3px; }
+  .db-row:last-child { border-bottom:none; }
+  .db-row .db-id { color:var(--muted); font-size:10px; }
+  .db-row .db-name { color:var(--text); font-size:13px; }
+  .db-row .db-meta { color:var(--accent); font-size:11px; }
+
+  /* Modal */
+  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:200; display:none; align-items:center; justify-content:center; backdrop-filter:blur(4px); }
+  .modal-overlay.open { display:flex; }
+  .modal { background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:36px; width:100%; max-width:480px; animation:fadeUp .2s ease; }
+  .modal h2 { font-family:var(--font-head); font-size:22px; font-weight:700; margin-bottom:6px; }
+  .modal p { font-size:13px; color:var(--muted); margin-bottom:24px; }
+  .modal-fields { display:flex; flex-direction:column; gap:14px; }
+  .modal-footer { display:flex; gap:10px; margin-top:24px; }
+  .btn-cancel { flex:1; padding:12px; border-radius:10px; border:1px solid var(--border); background:transparent; color:var(--muted); font-family:var(--font-body); font-size:14px; cursor:pointer; transition:all .2s; }
+  .btn-cancel:hover { border-color:var(--text); color:var(--text); }
+  .btn-confirm { flex:2; padding:12px; border-radius:10px; border:none; background:var(--accent); color:white; font-family:var(--font-head); font-size:14px; font-weight:700; cursor:pointer; transition:all .2s; display:flex; align-items:center; justify-content:center; gap:8px; }
+  .btn-confirm:hover { background:#7b73ff; }
+  .btn-confirm:disabled { opacity:.5; cursor:not-allowed; }
+</style>
+</head>
+<body>
+
+<!-- ══ AUTH SCREEN ══════════════════════════════════════════════════════ -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="panel-left">
+      <div class="logo"><div class="logo-dot"></div>TenantOS</div>
+      <h1 class="panel-title">Multi-tenant<br><span>SaaS</span><br>Platform</h1>
+      <p class="panel-desc">Isolated workspaces. One login. Full data separation between organisations.</p>
+      <div class="tab-switcher">
+        <button class="tab-btn" onclick="switchTab('signup')" id="tab-signup">
+          <div class="tab-icon">🏢</div>
+          <div class="tab-label">Register Company<small>Create tenant + super user</small></div>
+        </button>
+        <button class="tab-btn active" onclick="switchTab('login')" id="tab-login">
+          <div class="tab-icon">🔑</div>
+          <div class="tab-label">Sign In<small>Existing user login</small></div>
+        </button>
+      </div>
+    </div>
+    <div class="panel-right">
+      <!-- SIGNUP -->
+      <div class="form-view" id="view-signup">
+        <div class="form-heading">Register your company</div>
+        <div class="form-sub">Creates a new isolated <strong>tenant workspace</strong> and your first <strong>super user</strong>.</div>
+        <div class="section-label">Company / Tenant</div>
+        <div class="fields-grid">
+          <div class="field"><label>Company name *</label><input type="text" id="s-company" placeholder="Acme Corp"/><span class="field-error" id="err-company"></span></div>
+          <div class="field"><label>Tenant display name *</label><input type="text" id="s-tenant-name" placeholder="Acme Workspace"/><span class="field-error" id="err-tenant-name"></span></div>
+          <div class="field full"><label>Company email *</label><input type="email" id="s-tenant-email" placeholder="admin@acme.com"/><span class="field-error" id="err-tenant-email"></span></div>
+        </div>
+        <div class="section-label">Super User Account</div>
+        <div class="fields-grid">
+          <div class="field"><label>Full name *</label><input type="text" id="s-name" placeholder="Jane Smith"/><span class="field-error" id="err-name"></span></div>
+          <div class="field"><label>Login email *</label><input type="email" id="s-email" placeholder="jane@acme.com"/><span class="field-error" id="err-email"></span></div>
+          <div class="field"><label>Password *</label><input type="password" id="s-password" placeholder="Min 8 characters"/><span class="field-error" id="err-password"></span></div>
+          <div class="field"><label>Confirm password *</label><input type="password" id="s-confirm" placeholder="Repeat password"/><span class="field-error" id="err-confirm"></span></div>
+        </div>
+        <button class="btn btn-primary" id="btn-signup" onclick="handleSignup()">
+          <div class="spinner"></div><span>Create Company Workspace →</span>
+        </button>
+        <div class="alert" id="alert-signup"></div>
+      </div>
+      <!-- LOGIN -->
+      <div class="form-view active" id="view-login">
+        <div class="form-heading">Welcome back</div>
+        <div class="form-sub">You'll see only your tenant's data after login.</div>
+        <div class="fields-grid" style="grid-template-columns:1fr;margin-top:8px;">
+          <div class="field"><label>Email address *</label><input type="email" id="l-email" placeholder="jane@acme.com"/><span class="field-error" id="err-l-email"></span></div>
+          <div class="field"><label>Password *</label><input type="password" id="l-password" placeholder="Your password"/><span class="field-error" id="err-l-password"></span></div>
+        </div>
+        <button class="btn btn-primary" id="btn-login" onclick="handleLogin()">
+          <div class="spinner"></div><span>Sign In →</span>
+        </button>
+        <div class="alert" id="alert-login"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ DASHBOARD ════════════════════════════════════════════════════════ -->
+<div id="dashboard">
+  <div class="sidebar">
+    <div class="sidebar-logo"><div style="width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent);flex-shrink:0;"></div>TenantOS</div>
+    <div class="tenant-badge"><span>Tenant Workspace</span><span id="sb-company">—</span></div>
+    <nav class="nav">
+      <button class="nav-item active" onclick="showPage('overview')"  id="nav-overview"> <span class="ni">📊</span> Overview</button>
+      <button class="nav-item"        onclick="showPage('customers')" id="nav-customers"><span class="ni">👥</span> Customers</button>
+      <button class="nav-item"        onclick="showPage('users')"     id="nav-users">    <span class="ni">🔐</span> Users</button>
+      <button class="nav-item"        onclick="showPage('database')"  id="nav-database"> <span class="ni">🗄️</span> Database View</button>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="avatar" id="sb-avatar">U</div>
+        <div class="user-meta"><strong id="sb-name">—</strong><small id="sb-role">—</small></div>
+      </div>
+      <button class="btn-logout" onclick="logout()">Sign out</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <!-- OVERVIEW -->
+    <div class="page active" id="page-overview">
+      <div class="page-header">
+        <div class="page-header-text"><h1>Overview</h1><p>Your tenant workspace at a glance</p></div>
+      </div>
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-label">Customers</div><div class="stat-value" id="stat-customers">—</div><div class="stat-sub">In your tenant only</div></div>
+        <div class="stat-card"><div class="stat-label">Users</div><div class="stat-value" id="stat-users">—</div><div class="stat-sub">In your tenant only</div></div>
+        <div class="stat-card"><div class="stat-label">Your Role</div><div class="stat-value" style="font-size:20px;padding-top:6px;" id="stat-role">—</div><div class="stat-sub" id="stat-role-sub">—</div></div>
+      </div>
+      <div class="table-card">
+        <div class="table-header"><h3>Recent Customers</h3></div>
+        <table><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Created</th></tr></thead>
+        <tbody id="overview-customers-body"></tbody></table>
+      </div>
+    </div>
+
+    <!-- CUSTOMERS -->
+    <div class="page" id="page-customers">
+      <div class="page-header">
+        <div class="page-header-text"><h1>Customers</h1><p>Only your tenant's records are shown</p></div>
+        <button class="btn-add" onclick="openModal('customer')">+ Add Customer</button>
+      </div>
+      <div class="table-card">
+        <table><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Created</th></tr></thead>
+        <tbody id="customers-body"></tbody></table>
+      </div>
+    </div>
+
+    <!-- USERS -->
+    <div class="page" id="page-users">
+      <div class="page-header">
+        <div class="page-header-text"><h1>Users</h1><p>All users belong to your tenant</p></div>
+        <button class="btn-add" id="btn-add-user" onclick="openModal('user')" style="display:none;">+ Add User</button>
+      </div>
+      <div class="table-card">
+        <table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Created</th></tr></thead>
+        <tbody id="users-body"></tbody></table>
+      </div>
+    </div>
+
+    <!-- DATABASE VIEW -->
+    <div class="page" id="page-database">
+      <div class="page-header">
+        <div class="page-header-text"><h1>Database View</h1><p>Single DB — data isolated by tenant foreign key</p></div>
+      </div>
+      <div class="db-info-banner">
+        <strong>How multi-tenancy works:</strong> All tenants share <strong>one SQLite database</strong>.
+        Every <code>Customer</code> and <code>User</code> row has a <code>tenant_id</code> foreign key.
+        When you query, Django filters <code>WHERE tenant_id = your_tenant</code> automatically — so Tenant A <strong>never sees</strong> Tenant B's data.
+      </div>
+      <div class="db-grid">
+        <div class="db-table-card">
+          <div class="db-table-title"><h3>customer_user</h3><span class="count" id="db-user-count">0 rows</span></div>
+          <div id="db-users"></div>
+        </div>
+        <div class="db-table-card">
+          <div class="db-table-title"><h3>customer_customer</h3><span class="count" id="db-cust-count">0 rows</span></div>
+          <div id="db-customers-view"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODALS ════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-customer">
+  <div class="modal">
+    <h2>Add Customer</h2>
+    <p>Saved to your tenant only — other tenants cannot see this.</p>
+    <div class="modal-fields">
+      <div class="field"><label>Full Name *</label><input type="text" id="mc-name" placeholder="Customer name"/></div>
+      <div class="field"><label>Email *</label><input type="email" id="mc-email" placeholder="customer@email.com"/></div>
+      <div class="field"><label>Phone</label><input type="text" id="mc-phone" placeholder="+91 98765 43210"/></div>
+    </div>
+    <div class="alert" id="alert-mc" style="margin-top:12px;"></div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('customer')">Cancel</button>
+      <button class="btn-confirm" id="btn-mc" onclick="createCustomer()"><div class="spinner"></div><span>Save Customer</span></button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-user">
+  <div class="modal">
+    <h2>Add User</h2>
+    <p>New user will belong to your tenant: <strong id="modal-tenant-name">—</strong></p>
+    <div class="modal-fields">
+      <div class="field"><label>Full Name *</label><input type="text" id="mu-name" placeholder="User name"/></div>
+      <div class="field"><label>Email *</label><input type="email" id="mu-email" placeholder="user@company.com"/></div>
+      <div class="field"><label>Password *</label><input type="password" id="mu-password" placeholder="Min 8 characters"/></div>
+    </div>
+    <div class="alert" id="alert-mu" style="margin-top:12px;"></div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('user')">Cancel</button>
+      <button class="btn-confirm" id="btn-mu" onclick="createUser()"><div class="spinner"></div><span>Create User</span></button>
+    </div>
+  </div>
+</div>
+
+<script>
+let STATE = { token: null, user: null };
+
+// ── Tab switch ──────────────────────────────────────────────────────────
+function switchTab(t) {
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.form-view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('tab-'+t).classList.add('active');
+  document.getElementById('view-'+t).classList.add('active');
+}
+
+// ── Helpers ─────────────────────────────────────────────────────────────
+const $=id=>document.getElementById(id);
+function showAlert(id,msg,type){const e=$(id);e.textContent=msg;e.className='alert '+type;}
+function clearAlert(id){const e=$(id);e.className='alert';e.textContent='';}
+function showErr(id,msg){const e=$(id);if(e){e.textContent=msg;e.classList.add('on');}const i=e?.previousElementSibling;if(i)i.classList.add('err');}
+function clearErrs(...ids){ids.forEach(id=>{const e=$(id);if(e){e.textContent='';e.classList.remove('on');}const i=e?.previousElementSibling;if(i)i.classList.remove('err');});}
+function setLoad(btn,on){btn.disabled=on;btn.classList.toggle('loading',on);}
+function fmt(dt){return dt?new Date(dt).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}):'—';}
+function apiFetch(url,opts={}){
+  return fetch(url,{...opts,headers:{'Content-Type':'application/json','Authorization':'Bearer '+STATE.token,...(opts.headers||{})}});
+}
+
+// ── SIGNUP ───────────────────────────────────────────────────────────────
+async function handleSignup() {
+  clearErrs('err-company','err-tenant-name','err-tenant-email','err-name','err-email','err-password','err-confirm');
+  clearAlert('alert-signup');
+  const company=$('s-company').value.trim(), tenant_name=$('s-tenant-name').value.trim();
+  const tenant_email=$('s-tenant-email').value.trim(), name=$('s-name').value.trim();
+  const email=$('s-email').value.trim(), password=$('s-password').value, confirm=$('s-confirm').value;
+  let ok=true;
+  if(!company){showErr('err-company','Required');ok=false;}
+  if(!tenant_name){showErr('err-tenant-name','Required');ok=false;}
+  if(!tenant_email){showErr('err-tenant-email','Required');ok=false;}
+  if(!name){showErr('err-name','Required');ok=false;}
+  if(!email){showErr('err-email','Required');ok=false;}
+  if(password.length<8){showErr('err-password','Min 8 chars');ok=false;}
+  if(password!==confirm){showErr('err-confirm','Passwords do not match');ok=false;}
+  if(!ok) return;
+  const btn=$('btn-signup'); setLoad(btn,true);
+  try {
+    const res=await fetch('/api/signup/',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({tenant_name,company,tenant_email,superuser_name:name,superuser_email:email,password,confirm_password:confirm})});
+    const data=await res.json();
+    if(res.ok){
+      showAlert('alert-signup',`✓ "${data.tenant.company}" created! Switching to login...`,'success');
+      setTimeout(()=>{switchTab('login');$('l-email').value=email;},2000);
+    } else {
+      const map={company:'err-company',tenant_name:'err-tenant-name',tenant_email:'err-tenant-email',superuser_name:'err-name',superuser_email:'err-email',password:'err-password',confirm_password:'err-confirm'};
+      const msgs=[];
+      for(const [k,v] of Object.entries(data)){
+        if(map[k]) showErr(map[k],Array.isArray(v)?v[0]:v);
+        else msgs.push(Array.isArray(v)?v.join(' '):String(v));
+      }
+      if(msgs.length) showAlert('alert-signup',msgs.join('\n'),'error');
+    }
+  } catch(e){showAlert('alert-signup','Network error — is Django running?','error');}
+  finally{setLoad(btn,false);}
+}
+
+// ── LOGIN ────────────────────────────────────────────────────────────────
+async function handleLogin() {
+  clearErrs('err-l-email','err-l-password'); clearAlert('alert-login');
+  const email=$('l-email').value.trim(), password=$('l-password').value;
+  if(!email){showErr('err-l-email','Required');return;}
+  if(!password){showErr('err-l-password','Required');return;}
+  const btn=$('btn-login'); setLoad(btn,true);
+  try {
+    const res=await fetch('/api/login/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
+    const data=await res.json();
+    if(res.ok){ STATE.token=data.access; await loadDashboard(); }
+    else showAlert('alert-login',data.detail||'Invalid credentials','error');
+  } catch(e){showAlert('alert-login','Network error — is Django running?','error');}
+  finally{setLoad(btn,false);}
+}
+
+// ── LOAD DASHBOARD ───────────────────────────────────────────────────────
+async function loadDashboard() {
+  const [cr,ur]=await Promise.all([apiFetch('/api/customers/'),apiFetch('/api/users/')]);
+  const customers=cr.ok?await cr.json():[];
+  const users=ur.ok?await ur.json():[];
+  const me=users.find(u=>u.role==='superuser')||users[0]||{};
+  STATE.user=me;
+
+  // Sidebar
+  $('sb-company').textContent=me.tenant_company||'Your Workspace';
+  $('sb-name').textContent=me.name||'—';
+  $('sb-role').textContent=me.role||'user';
+  $('sb-avatar').textContent=(me.name||'U')[0].toUpperCase();
+  $('modal-tenant-name').textContent=me.tenant_company||'your tenant';
+  if(me.role==='superuser') $('btn-add-user').style.display='flex';
+
+  // Stats
+  $('stat-customers').textContent=customers.length;
+  $('stat-users').textContent=users.length;
+  $('stat-role').textContent=me.role==='superuser'?'Super User':'User';
+  $('stat-role-sub').textContent=me.role==='superuser'?'Can manage users':'Read & write access';
+
+  renderCustomers('overview-customers-body',customers.slice(0,5));
+  renderCustomers('customers-body',customers);
+  renderUsers('users-body',users);
+  renderDbView(customers,users);
+
+  $('auth-screen').style.display='none';
+  $('dashboard').style.display='block';
+}
+
+// ── RENDER ───────────────────────────────────────────────────────────────
+function renderCustomers(tbodyId,list){
+  const t=$(tbodyId);
+  if(!list.length){t.innerHTML=`<tr><td colspan="4"><div class="empty-state"><div class="ei">👤</div><p>No customers yet — add one!</p></div></td></tr>`;return;}
+  t.innerHTML=list.map(c=>`<tr>
+    <td><strong>${c.name}</strong></td>
+    <td style="color:var(--muted)">${c.email}</td>
+    <td>${c.phone||'—'}</td>
+    <td style="color:var(--muted);font-size:12px;">${fmt(c.created_at)}</td>
+  </tr>`).join('');
+}
+function renderUsers(tbodyId,list){
+  const t=$(tbodyId);
+  if(!list.length){t.innerHTML=`<tr><td colspan="4"><div class="empty-state"><div class="ei">🔐</div><p>No users</p></div></td></tr>`;return;}
+  t.innerHTML=list.map(u=>`<tr>
+    <td><strong>${u.name}</strong></td>
+    <td style="color:var(--muted)">${u.email}</td>
+    <td><span class="badge ${u.role==='superuser'?'badge-super':'badge-user'}">${u.role}</span></td>
+    <td style="color:var(--muted);font-size:12px;">${fmt(u.created_at)}</td>
+  </tr>`).join('');
+}
+function renderDbView(customers,users){
+  $('db-user-count').textContent=users.length+' rows (your tenant)';
+  $('db-cust-count').textContent=customers.length+' rows (your tenant)';
+  $('db-users').innerHTML=users.length?users.map(u=>`
+    <div class="db-row">
+      <span class="db-name">${u.name} &nbsp;<span class="badge ${u.role==='superuser'?'badge-super':'badge-user'}" style="font-size:9px">${u.role}</span></span>
+      <span class="db-meta">tenant_id → ${$('sb-company').textContent}</span>
+      <span class="db-id">${u.email}</span>
+    </div>`).join(''):'<div class="db-row"><span class="db-id">empty</span></div>';
+  $('db-customers-view').innerHTML=customers.length?customers.map(c=>`
+    <div class="db-row">
+      <span class="db-name">${c.name}</span>
+      <span class="db-meta">tenant_id → ${$('sb-company').textContent} (other tenants cannot see)</span>
+      <span class="db-id">${c.email} · ${c.phone||'no phone'}</span>
+    </div>`).join(''):'<div class="db-row"><span class="db-id">empty — add customers first</span></div>';
+}
+
+// ── NAVIGATION ───────────────────────────────────────────────────────────
+function showPage(p){
+  document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
+  $('page-'+p).classList.add('active');
+  $('nav-'+p).classList.add('active');
+  if(p==='customers') apiFetch('/api/customers/').then(r=>r.json()).then(d=>renderCustomers('customers-body',d));
+  if(p==='users')     apiFetch('/api/users/').then(r=>r.json()).then(d=>renderUsers('users-body',d));
+  if(p==='database')  apiFetch('/api/customers/').then(r=>r.json()).then(c=>apiFetch('/api/users/').then(r=>r.json()).then(u=>renderDbView(c,u)));
+}
+
+// ── MODALS ────────────────────────────────────────────────────────────────
+function openModal(t){document.getElementById('modal-'+t).classList.add('open');}
+function closeModal(t){document.getElementById('modal-'+t).classList.remove('open');clearAlert('alert-mc');clearAlert('alert-mu');}
+
+async function createCustomer(){
+  const name=$('mc-name').value.trim(),email=$('mc-email').value.trim(),phone=$('mc-phone').value.trim();
+  if(!name||!email){showAlert('alert-mc','Name and email required','error');return;}
+  const btn=$('btn-mc');setLoad(btn,true);
+  try{
+    const res=await apiFetch('/api/customers/',{method:'POST',body:JSON.stringify({name,email,phone})});
+    const data=await res.json();
+    if(res.ok){
+      showAlert('alert-mc','✓ Customer saved to your tenant!','success');
+      $('mc-name').value='';$('mc-email').value='';$('mc-phone').value='';
+      setTimeout(()=>{closeModal('customer');loadDashboard();},1200);
+    } else showAlert('alert-mc',JSON.stringify(data),'error');
+  }catch(e){showAlert('alert-mc','Network error','error');}
+  finally{setLoad(btn,false);}
+}
+
+async function createUser(){
+  const name=$('mu-name').value.trim(),email=$('mu-email').value.trim(),password=$('mu-password').value;
+  if(!name||!email||!password){showAlert('alert-mu','All fields required','error');return;}
+  const btn=$('btn-mu');setLoad(btn,true);
+  try{
+    const res=await apiFetch('/api/users/',{method:'POST',body:JSON.stringify({name,email,password})});
+    const data=await res.json();
+    if(res.ok){
+      showAlert('alert-mu','✓ User created in your tenant!','success');
+      $('mu-name').value='';$('mu-email').value='';$('mu-password').value='';
+      setTimeout(()=>{closeModal('user');loadDashboard();},1200);
+    } else showAlert('alert-mu',JSON.stringify(data),'error');
+  }catch(e){showAlert('alert-mu','Network error','error');}
+  finally{setLoad(btn,false);}
+}
+
+// ── LOGOUT ────────────────────────────────────────────────────────────────
+function logout(){
+  STATE={token:null,user:null};
+  $('dashboard').style.display='none';
+  $('auth-screen').style.display='flex';
+  clearAlert('alert-login');
+}
+
+// Enter key
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Enter') return;
+  const authVisible=$('auth-screen').style.display!=='none';
+  if(authVisible && $('view-login').classList.contains('active')) handleLogin();
+  if(authVisible && $('view-signup').classList.contains('active')) handleSignup();
+});
+</script>
+</body>
+</html>
